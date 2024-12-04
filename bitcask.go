@@ -43,40 +43,30 @@ func Open(dbName string, config config.Config) (*Bitcask, error) {
 }
 
 func initializeDbDir(path string) error {
-	dbDirExists, err := utils.DirExists(path)
-	if err != nil {
-		return err
-	}
-	if !dbDirExists {
-		if err := os.Mkdir(path, 0751); err != nil {
+
+	createDirIfNotExists := func(path string) error {
+		dirExists, err := utils.DirExists(path)
+		if err != nil {
 			return err
 		}
-	}
-
-	segmentsDirPath := filepath.Join(path, segmentsDirName)
-	segmentsDirExists, err := utils.DirExists(segmentsDirPath)
-
-	if err != nil {
-		return err
-	}
-
-	if !segmentsDirExists {
-		if err := os.Mkdir(segmentsDirPath, 0751); err != nil {
-			return err
+		if !dirExists {
+			if err := os.Mkdir(path, 0751); err != nil {
+				return err
+			}
 		}
+		return nil
 	}
 
-	mergeSegmentsDirPath := filepath.Join(path, mergedSegmentsDirName)
-	mergedSegmentsDirExists, err := utils.DirExists(mergeSegmentsDirPath)
-
-	if err != nil {
+	if err := createDirIfNotExists(path); err != nil {
 		return err
 	}
 
-	if !mergedSegmentsDirExists {
-		if err := os.Mkdir(mergeSegmentsDirPath, 0751); err != nil {
-			return err
-		}
+	if err := createDirIfNotExists(filepath.Join(path, segmentsDirName)); err != nil {
+		return err
+	}
+
+	if err := createDirIfNotExists(filepath.Join(path, mergedSegmentsDirName)); err != nil {
+		return err
 	}
 	return nil
 }
