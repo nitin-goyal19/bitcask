@@ -4,8 +4,10 @@ import (
 	"errors"
 	"os"
 	"path/filepath"
+	"sync"
 
 	"github.com/nitin-goyal19/bitcask/config"
+	segmentstore "github.com/nitin-goyal19/bitcask/internal/segment-store"
 	"github.com/nitin-goyal19/bitcask/internal/utils"
 )
 
@@ -15,8 +17,10 @@ const (
 )
 
 type Bitcask struct {
-	config config.Config
-	dbName string
+	config       config.Config
+	dbName       string
+	segmentStore *segmentstore.SegmentStore
+	mu           sync.RWMutex
 }
 
 func Open(dbName string, config config.Config) (*Bitcask, error) {
@@ -36,9 +40,13 @@ func Open(dbName string, config config.Config) (*Bitcask, error) {
 		return nil, err
 	}
 
+	segmentStore := &segmentstore.SegmentStore{}
+	segmentStore.OpenNewSegmentFile(filepath.Join(dbDir, segmentsDirName))
+
 	return &Bitcask{
-		config: config,
-		dbName: dbName,
+		config:       config,
+		dbName:       dbName,
+		segmentStore: segmentStore,
 	}, nil
 }
 
@@ -69,4 +77,11 @@ func initializeDbDir(path string) error {
 		return err
 	}
 	return nil
+}
+
+func (db *Bitcask) Close() {
+	db.mu.Lock()
+	defer db.mu.Unlock()
+
+	db.segmentStore.Close()
 }
