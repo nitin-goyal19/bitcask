@@ -14,5 +14,10 @@ func main() {
 		log.Fatal(error)
 	}
 
+	err := db.Set([]byte("foo"), []byte("bar"))
+	if err != nil {
+		log.Fatal(err)
+	}
+
 	db.Close()
 }
