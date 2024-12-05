@@ -49,3 +49,14 @@ func (segmentStore *SegmentStore) Close() error {
 
 	return nil
 }
+
+func (segmentstore *SegmentStore) Write(record *Record, recordType RecordType) error {
+	record.recordType = recordType
+	recordBuf := GetEncodedRecord(record)
+	err := segmentstore.activeSegment.Write(recordBuf)
+
+	if err != nil {
+		return err
+	}
+	return nil
+}

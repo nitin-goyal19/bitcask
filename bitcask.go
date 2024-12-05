@@ -85,3 +85,14 @@ func (db *Bitcask) Close() {
 
 	db.segmentStore.Close()
 }
+
+func (db *Bitcask) Set(key []byte, val []byte) error {
+	record := segmentstore.Record{
+		Key: key,
+		Val: val,
+	}
+	if err := db.segmentStore.Write(&record, segmentstore.RegularRecord); err != nil {
+		return err
+	}
+	return nil
+}
