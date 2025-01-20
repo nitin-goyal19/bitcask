@@ -77,3 +77,27 @@ func (segmentstore *SegmentStore) Write(record *Record, recordType RecordType) e
 	}
 	return nil
 }
+
+func (segmentstore *SegmentStore) Read(key []byte) (*Record, error) {
+	indexRec := segmentstore.index.Get(key)
+	if indexRec == nil {
+		return nil, nil
+	}
+
+	var segment *Segment
+	if segmentstore.activeSegment.id == indexRec.segmentId {
+		segment = segmentstore.activeSegment
+	} else {
+		segment = segmentstore.oldSegments[indexRec.segmentId]
+	}
+
+	recordBuf, error := segment.Read(indexRec.offset)
+
+	if error != nil {
+		return nil, error
+	}
+
+	record := GetDecodedRecord(recordBuf)
+
+	return record, nil
+}

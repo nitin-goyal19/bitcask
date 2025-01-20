@@ -2,6 +2,7 @@ package segmentstore
 
 import (
 	"encoding/binary"
+	"errors"
 	"hash/crc32"
 	"os"
 )
@@ -46,3 +47,38 @@ func (segment *Segment) Write(buf, metadataBuf []byte) (SegmentOffset, error) {
 
 	return prevOffset, nil
 }
+
+func (segment *Segment) Read(offset SegmentOffset) ([]byte, error) {
+	bytesRead := make([]byte, binary.MaxVarintLen64)
+	segment.fd.ReadAt(bytesRead, int64(offset))
+
+	walRecordBufLen, numBytesRead := binary.Uvarint(bytesRead)
+
+	numAdditionalBytesToRead := walRecordBufLen + uint64(numBytesRead) - uint64(len(bytesRead))
+
+	if numAdditionalBytesToRead > 0 {
+		additionalBuf := make([]byte, numAdditionalBytesToRead)
+		segment.fd.ReadAt(additionalBuf, int64(offset)+binary.MaxVarintLen64)
+		// bytesRead = bytesRead[numBytesRead:]
+		bytesRead = append(bytesRead, additionalBuf...)
+	} else {
+		bytesRead = bytesRead[:walRecordBufLen+uint64(numBytesRead)]
+	}
+	bytesRead = bytesRead[numBytesRead:]
+
+	storedCrcSum, numCrcSumBytes := binary.Uvarint(bytesRead)
+
+	crcSum := crc32.ChecksumIEEE(bytesRead[numCrcSumBytes:])
+
+	if storedCrcSum != uint64(crcSum) {
+		return nil, errors.New("CRC check failed...")
+	}
+
+	bytesRead = bytesRead[numCrcSumBytes:]
+
+	_, numRecordBufLenBytes := binary.Uvarint(bytesRead)
+
+	return bytesRead[numRecordBufLenBytes:], nil
+}
+
+//[0, 0, 1, 2, 3, 4, 5, 6, &, &, &, &]

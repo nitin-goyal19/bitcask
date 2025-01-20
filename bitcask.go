@@ -106,3 +106,13 @@ func (db *Bitcask) Set(key []byte, val []byte) error {
 	}
 	return nil
 }
+
+func (db *Bitcask) Get(key []byte) ([]byte, error) {
+	record, error := db.segmentStore.Read(key)
+
+	if error != nil {
+		return nil, error
+	}
+
+	return record.Val, nil
+}

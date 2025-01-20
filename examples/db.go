@@ -1,6 +1,7 @@
 package main
 
 import (
+	"fmt"
 	"log"
 
 	"github.com/nitin-goyal19/bitcask"
@@ -18,6 +19,14 @@ func main() {
 	if err != nil {
 		log.Fatal(err)
 	}
+
+	val, err := db.Get([]byte("foo"))
+
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	fmt.Println(string(val))
 
 	db.Close()
 }

@@ -26,6 +26,7 @@ func GetEncodedRecord(record *Record) []byte {
 	index := 1
 	index += binary.PutUvarint(encodedRecord[index:], uint64(len(record.Key)))
 	index += binary.PutUvarint(encodedRecord[index:], uint64(len(record.Val)))
+	encodedRecord = encodedRecord[0:index] //TODO: optimize
 	encodedRecord = append(encodedRecord, record.Key...)
 	encodedRecord = append(encodedRecord, record.Val...)
 
