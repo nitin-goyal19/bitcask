@@ -1,17 +1,28 @@
 package segmentstore
 
 import (
+	"encoding/binary"
 	"fmt"
 	"os"
 	"path/filepath"
 	"sync"
 	"time"
+	// "github.com/nitin-goyal19/bitcask/internal/index"
 )
 
 type SegmentStore struct {
-	activeSegment *Segment
-	oldSegments   map[SegmentId]*Segment
-	mu            sync.RWMutex
+	activeSegment  *Segment
+	oldSegments    map[SegmentId]*Segment
+	mu             sync.RWMutex
+	recordMetadata []byte
+	index          *Index
+}
+
+func GetSegmentStore() *SegmentStore {
+	return &SegmentStore{
+		recordMetadata: make([]byte, binary.MaxVarintLen64+binary.MaxVarintLen32),
+		index:          CreateIndex(),
+	}
 }
 
 func (segStore *SegmentStore) OpenNewSegmentFile(dirPath string) error {
@@ -53,7 +64,13 @@ func (segmentStore *SegmentStore) Close() error {
 func (segmentstore *SegmentStore) Write(record *Record, recordType RecordType) error {
 	record.recordType = recordType
 	recordBuf := GetEncodedRecord(record)
-	err := segmentstore.activeSegment.Write(recordBuf)
+	segmentstore.mu.Lock()
+	defer segmentstore.mu.Unlock()
+	recordOffset, err := segmentstore.activeSegment.Write(recordBuf, segmentstore.recordMetadata)
+	segmentstore.index.Set(record.Key, &IndexRecord{
+		segmentId: segmentstore.activeSegment.id,
+		offset:    recordOffset,
+	})
 
 	if err != nil {
 		return err

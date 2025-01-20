@@ -21,15 +21,17 @@ type Record struct {
 }
 
 func GetEncodedRecord(record *Record) []byte {
-	encodedRecord := make([]byte, 1+binary.MaxVarintLen16+binary.MaxVarintLen64)
+	encodedRecord := make([]byte, 1+binary.MaxVarintLen16+binary.MaxVarintLen32)
 	encodedRecord[0] = record.recordType
 	index := 1
 	index += binary.PutUvarint(encodedRecord[index:], uint64(len(record.Key)))
-	binary.PutUvarint(encodedRecord[index:], uint64(len(record.Val)))
+	index += binary.PutUvarint(encodedRecord[index:], uint64(len(record.Val)))
 	encodedRecord = append(encodedRecord, record.Key...)
 	encodedRecord = append(encodedRecord, record.Val...)
 
-	return encodedRecord
+	index += len(record.Key) + len(record.Val)
+
+	return encodedRecord[0:index]
 }
 
 func GetDecodedRecord(recorfBuf []byte) *Record {

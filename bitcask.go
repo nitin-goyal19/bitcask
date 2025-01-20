@@ -2,6 +2,8 @@ package bitcask
 
 import (
 	"errors"
+	"fmt"
+	"math"
 	"os"
 	"path/filepath"
 	"sync"
@@ -40,7 +42,7 @@ func Open(dbName string, config config.Config) (*Bitcask, error) {
 		return nil, err
 	}
 
-	segmentStore := &segmentstore.SegmentStore{}
+	segmentStore := segmentstore.GetSegmentStore()
 	segmentStore.OpenNewSegmentFile(filepath.Join(dbDir, segmentsDirName))
 
 	return &Bitcask{
@@ -87,6 +89,14 @@ func (db *Bitcask) Close() {
 }
 
 func (db *Bitcask) Set(key []byte, val []byte) error {
+	if len(key) > math.MaxUint16 {
+		return errors.New(fmt.Sprintf("Key can not be larger than %d bytes", math.MaxUint16))
+	}
+
+	if len(val) > math.MaxUint32 {
+		return errors.New(fmt.Sprintf("Key can not be larger than %d bytes", math.MaxUint32))
+	}
+
 	record := segmentstore.Record{
 		Key: key,
 		Val: val,
