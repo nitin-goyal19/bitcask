@@ -63,13 +63,15 @@ func (segmentStore *SegmentStore) Close() error {
 
 func (segmentstore *SegmentStore) Write(record *Record, recordType RecordType) error {
 	record.recordType = recordType
-	recordBuf := GetEncodedRecord(record)
+	recordHeaderBuf := GetEncodedRecordHeader(record)
 	segmentstore.mu.Lock()
 	defer segmentstore.mu.Unlock()
-	recordOffset, err := segmentstore.activeSegment.Write(recordBuf, segmentstore.recordMetadata)
+	valOffset, walRecordSize, err := segmentstore.activeSegment.Write(recordHeaderBuf, record)
 	segmentstore.index.Set(record.Key, &IndexRecord{
-		segmentId: segmentstore.activeSegment.id,
-		offset:    recordOffset,
+		segmentId:   segmentstore.activeSegment.id,
+		valueSize:   uint32(len(record.Val)),
+		valueOffset: valOffset,
+		recordSize:  walRecordSize,
 	})
 
 	if err != nil {
@@ -78,7 +80,7 @@ func (segmentstore *SegmentStore) Write(record *Record, recordType RecordType) e
 	return nil
 }
 
-func (segmentstore *SegmentStore) Read(key []byte) (*Record, error) {
+func (segmentstore *SegmentStore) Read(key []byte) ([]byte, error) {
 	indexRec := segmentstore.index.Get(key)
 	if indexRec == nil {
 		return nil, nil
@@ -91,13 +93,11 @@ func (segmentstore *SegmentStore) Read(key []byte) (*Record, error) {
 		segment = segmentstore.oldSegments[indexRec.segmentId]
 	}
 
-	recordBuf, error := segment.Read(indexRec.offset)
+	value, error := segment.Read(indexRec.valueOffset, indexRec.valueSize)
 
 	if error != nil {
 		return nil, error
 	}
 
-	record := GetDecodedRecord(recordBuf)
-
-	return record, nil
+	return value, nil
 }

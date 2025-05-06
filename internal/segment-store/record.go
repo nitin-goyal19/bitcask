@@ -2,6 +2,7 @@ package segmentstore
 
 import (
 	"encoding/binary"
+	"time"
 )
 
 type RecordType = byte
@@ -11,28 +12,29 @@ const (
 	TombstoneRecord
 )
 
-// crc(4 bytes) + recordType(1 byte) + keySize(2 bytes) + valSize(2 bytes)
-const RecordHeaderSize = 4 + 1 + 2*2
+// recordType(1 byte) + timestamp(8 byte) + keySize(2 bytes) + valSize(4 bytes)
+const RecordHeaderSize = 1 + 8 + 2 + 4
 
 type Record struct {
 	recordType RecordType
+	timestamp  uint64
+	keySize    uint16
+	valSize    uint32
 	Key        []byte
 	Val        []byte
 }
 
-func GetEncodedRecord(record *Record) []byte {
-	encodedRecord := make([]byte, 1+binary.MaxVarintLen16+binary.MaxVarintLen32)
-	encodedRecord[0] = record.recordType
+func GetEncodedRecordHeader(record *Record) []byte {
+	encodedRecordHeader := make([]byte, RecordHeaderSize)
+	encodedRecordHeader[0] = record.recordType
 	index := 1
-	index += binary.PutUvarint(encodedRecord[index:], uint64(len(record.Key)))
-	index += binary.PutUvarint(encodedRecord[index:], uint64(len(record.Val)))
-	encodedRecord = encodedRecord[0:index] //TODO: optimize
-	encodedRecord = append(encodedRecord, record.Key...)
-	encodedRecord = append(encodedRecord, record.Val...)
+	numBytesWritten, _ := binary.Encode(encodedRecordHeader[1:], binary.BigEndian, uint64(time.Now().UnixNano()))
+	index += numBytesWritten
+	numBytesWritten, _ = binary.Encode(encodedRecordHeader[index:], binary.BigEndian, uint16(len(record.Key)))
+	index += numBytesWritten
+	numBytesWritten, _ = binary.Encode(encodedRecordHeader[index:], binary.BigEndian, uint32(len(record.Val)))
 
-	index += len(record.Key) + len(record.Val)
-
-	return encodedRecord[0:index]
+	return encodedRecordHeader
 }
 
 func GetDecodedRecord(recorfBuf []byte) *Record {

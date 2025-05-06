@@ -28,5 +28,18 @@ func main() {
 
 	fmt.Println(string(val))
 
+	err = db.Set([]byte("key2"), []byte("val2"))
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	val, err = db.Get([]byte("key2"))
+
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	fmt.Println(string(val))
+
 	db.Close()
 }
