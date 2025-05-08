@@ -116,3 +116,9 @@ func (db *Bitcask) Get(key []byte) ([]byte, error) {
 
 	return value, nil
 }
+
+func (db *Bitcask) Delete(key []byte) (bool, error) {
+	ok, error := db.segmentStore.Delete(key)
+
+	return ok, error
+}
