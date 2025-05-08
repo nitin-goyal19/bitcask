@@ -1,10 +1,10 @@
 package segmentstore
 
 type IndexRecord struct {
-	segmentId   SegmentId
-	valueSize   uint32
-	valueOffset SegmentOffset
-	recordSize  uint64
+	segmentId    SegmentId
+	valueSize    uint32
+	valueOffset  SegmentOffset
+	recordOffset SegmentOffset
 }
 
 type Index struct {

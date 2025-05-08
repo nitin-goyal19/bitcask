@@ -66,12 +66,12 @@ func (segmentstore *SegmentStore) Write(record *Record, recordType RecordType) e
 	recordHeaderBuf := GetEncodedRecordHeader(record)
 	segmentstore.mu.Lock()
 	defer segmentstore.mu.Unlock()
-	valOffset, walRecordSize, err := segmentstore.activeSegment.Write(recordHeaderBuf, record)
+	valOffset, recordOffset, err := segmentstore.activeSegment.Write(recordHeaderBuf, record)
 	segmentstore.index.Set(record.Key, &IndexRecord{
-		segmentId:   segmentstore.activeSegment.id,
-		valueSize:   uint32(len(record.Val)),
-		valueOffset: valOffset,
-		recordSize:  walRecordSize,
+		segmentId:    segmentstore.activeSegment.id,
+		valueSize:    uint32(len(record.Val)),
+		valueOffset:  valOffset,
+		recordOffset: recordOffset,
 	})
 
 	if err != nil {

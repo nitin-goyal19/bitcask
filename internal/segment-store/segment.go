@@ -3,6 +3,7 @@ package segmentstore
 import (
 	"encoding/binary"
 	"hash/crc32"
+	"log"
 	"os"
 )
 
@@ -64,12 +65,15 @@ func (segment *Segment) Write(recordHeaderBuf []byte, record *Record) (SegmentOf
 	}
 	totalBytesWritten += numBytesWritten
 
+	log.Printf("num bytes written: %d", totalBytesWritten)
+
+	recordOffset := segment.curWriteOffset
 	valOffset := uint64(segment.curWriteOffset + uint64(totalBytesWritten-numBytesWritten))
 	segment.curWriteOffset += uint64(totalBytesWritten)
 
-	walRecordSize := uint64(WalRecordHeaderSize) + recordSize
+	// walRecordSize := uint64(WalRecordHeaderSize) + recordSize
 
-	return valOffset, walRecordSize, nil
+	return valOffset, recordOffset, nil
 }
 
 func (segment *Segment) Read(offset SegmentOffset, valSize uint32) ([]byte, error) {
