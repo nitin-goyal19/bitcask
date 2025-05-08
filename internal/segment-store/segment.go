@@ -87,5 +87,3 @@ func (segment *Segment) Read(offset SegmentOffset, valSize uint32) ([]byte, erro
 
 	return readBytes, nil
 }
-
-//[0, 0, 1, 2, 3, 4, 5, 6, &, &, &, &]

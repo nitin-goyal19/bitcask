@@ -41,5 +41,26 @@ func main() {
 
 	fmt.Println(string(val))
 
+	log.Printf("delete key")
+	_, err = db.Delete([]byte("key2"))
+
+	if err != nil {
+		log.Print(err.Error())
+	}
+
+	log.Printf("fetch deleted key")
+	_, err = db.Get([]byte("key2"))
+
+	if err != nil {
+		log.Print(err.Error())
+	}
+
+	log.Printf("delete deleted key")
+	_, err = db.Delete([]byte("key2"))
+
+	if err != nil {
+		log.Print(err.Error())
+	}
+
 	db.Close()
 }

@@ -7,7 +7,8 @@ import (
 	"path/filepath"
 	"sync"
 	"time"
-	// "github.com/nitin-goyal19/bitcask/internal/index"
+
+	bitcask_errors "github.com/nitin-goyal19/bitcask/errors"
 )
 
 type SegmentStore struct {
@@ -83,7 +84,7 @@ func (segmentstore *SegmentStore) Write(record *Record, recordType RecordType) e
 func (segmentstore *SegmentStore) Read(key []byte) ([]byte, error) {
 	indexRec := segmentstore.index.Get(key)
 	if indexRec == nil {
-		return nil, nil
+		return nil, bitcask_errors.ErrKeyNotFound
 	}
 
 	var segment *Segment
@@ -100,4 +101,24 @@ func (segmentstore *SegmentStore) Read(key []byte) ([]byte, error) {
 	}
 
 	return value, nil
+}
+
+func (segmentstore *SegmentStore) Delete(key []byte) (bool, error) {
+	indexRec := segmentstore.index.Get(key)
+	if indexRec == nil {
+		return false, bitcask_errors.ErrKeyNotFound
+	}
+
+	tombStoneRecord := &Record{
+		Key: key,
+		Val: nil,
+	}
+
+	if error := segmentstore.Write(tombStoneRecord, TombstoneRecord); error != nil {
+		return false, error
+	}
+
+	segmentstore.index.Delete(key)
+
+	return true, nil
 }

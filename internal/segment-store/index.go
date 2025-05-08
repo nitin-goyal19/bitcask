@@ -35,3 +35,7 @@ func (index *Index) Set(key []byte, indexRec *IndexRecord) {
 	// defer index.mu.Unlock()
 	index.indexRecords[string(key)] = indexRec
 }
+
+func (index *Index) Delete(key []byte) {
+	delete(index.indexRecords, string(key))
+}
