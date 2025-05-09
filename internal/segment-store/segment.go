@@ -3,8 +3,11 @@ package segmentstore
 import (
 	"encoding/binary"
 	"hash/crc32"
+	"io"
 	"log"
 	"os"
+
+	bitcask_errors "github.com/nitin-goyal19/bitcask/errors"
 )
 
 type SegmentId = int64
@@ -76,7 +79,7 @@ func (segment *Segment) Write(recordHeaderBuf []byte, record *Record) (SegmentOf
 	return valOffset, recordOffset, nil
 }
 
-func (segment *Segment) Read(offset SegmentOffset, valSize uint32) ([]byte, error) {
+func (segment *Segment) Read(offset SegmentOffset, valSize uint64) ([]byte, error) {
 	readBytes := make([]byte, valSize)
 
 	_, err := segment.fd.ReadAt(readBytes, int64(offset))
@@ -86,4 +89,36 @@ func (segment *Segment) Read(offset SegmentOffset, valSize uint32) ([]byte, erro
 	}
 
 	return readBytes, nil
+}
+
+func (segment *Segment) ReadEncodeRecordWithCrcCheck(offset SegmentOffset) ([]byte, uint64, error) {
+	walHeader, error := segment.Read(offset, WalRecordHeaderSize)
+
+	if error != nil && (error != io.EOF || len(walHeader) != 0) {
+		return nil, 0, error
+	}
+
+	if error == io.EOF {
+		return nil, 0, nil
+	}
+
+	var storedCrcSum uint32
+	if _, error = binary.Decode(walHeader[0:4], binary.BigEndian, &storedCrcSum); error != nil {
+		return nil, 0, error
+	}
+	var recordLen uint64
+	if _, error = binary.Decode(walHeader[4:], binary.BigEndian, &recordLen); error != nil {
+		return nil, 0, error
+	}
+
+	recordBuf, error := segment.Read(offset+uint64(WalRecordHeaderSize), recordLen)
+
+	crcSum := crc32.ChecksumIEEE(walHeader[4:])
+	crcSum = crc32.Update(crcSum, crc32.IEEETable, recordBuf)
+
+	if crcSum != storedCrcSum {
+		return nil, 0, bitcask_errors.ErrCrcVerificationFailed
+	}
+
+	return recordBuf, WalRecordHeaderSize + recordLen, nil
 }

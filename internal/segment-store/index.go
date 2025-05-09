@@ -5,6 +5,7 @@ type IndexRecord struct {
 	valueSize    uint32
 	valueOffset  SegmentOffset
 	recordOffset SegmentOffset
+	timestamp    uint64
 }
 
 type Index struct {
@@ -38,4 +39,14 @@ func (index *Index) Set(key []byte, indexRec *IndexRecord) {
 
 func (index *Index) Delete(key []byte) {
 	delete(index.indexRecords, string(key))
+}
+
+func (index *Index) CompareTimestamp(key []byte, timestamp uint64) bool {
+	indexRec := index.Get(key)
+
+	if indexRec == nil {
+		return true
+	}
+
+	return timestamp >= indexRec.timestamp
 }

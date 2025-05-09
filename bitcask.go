@@ -43,7 +43,13 @@ func Open(dbName string, config config.Config) (*Bitcask, error) {
 	}
 
 	segmentStore := segmentstore.GetSegmentStore()
-	segmentStore.OpenNewSegmentFile(filepath.Join(dbDir, segmentsDirName))
+
+	if err = segmentStore.InitializeSegmentStore(filepath.Join(dbDir, segmentsDirName)); err != nil {
+		return nil, err
+	}
+	if err = segmentStore.OpenNewSegmentFile(filepath.Join(dbDir, segmentsDirName)); err != nil {
+		return nil, err
+	}
 
 	return &Bitcask{
 		config:       config,

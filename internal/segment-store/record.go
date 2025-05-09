@@ -18,17 +18,16 @@ const RecordHeaderSize = 1 + 8 + 2 + 4
 type Record struct {
 	recordType RecordType
 	timestamp  uint64
-	keySize    uint16
-	valSize    uint32
 	Key        []byte
 	Val        []byte
 }
 
 func GetEncodedRecordHeader(record *Record) []byte {
+	record.timestamp = uint64(time.Now().UnixNano())
 	encodedRecordHeader := make([]byte, RecordHeaderSize)
 	encodedRecordHeader[0] = record.recordType
 	index := 1
-	numBytesWritten, _ := binary.Encode(encodedRecordHeader[1:], binary.BigEndian, uint64(time.Now().UnixNano()))
+	numBytesWritten, _ := binary.Encode(encodedRecordHeader[index:], binary.BigEndian, record.timestamp)
 	index += numBytesWritten
 	numBytesWritten, _ = binary.Encode(encodedRecordHeader[index:], binary.BigEndian, uint16(len(record.Key)))
 	index += numBytesWritten
@@ -37,26 +36,48 @@ func GetEncodedRecordHeader(record *Record) []byte {
 	return encodedRecordHeader
 }
 
-func GetDecodedRecord(recorfBuf []byte) *Record {
+func GetDecodedRecord(recorfBuf []byte) (*Record, error) {
 	recordType := recorfBuf[0]
 	index := 1
-	keySize, n := binary.Uvarint(recorfBuf[index:])
 
-	index += n
-	valSize, n := binary.Uvarint(recorfBuf[index:])
+	var timestamp uint64
+	numBytesRead, err := binary.Decode(recorfBuf[index:], binary.BigEndian, &timestamp)
+	if err != nil {
+		return nil, err
+	}
 
-	index += n
+	index += numBytesRead
+	var keySize uint16
+	numBytesRead, err = binary.Decode(recorfBuf[index:], binary.BigEndian, &keySize)
+	if err != nil {
+		return nil, err
+	}
 
+	index += numBytesRead
+	var valSize uint32
+	numBytesRead, err = binary.Decode(recorfBuf[index:], binary.BigEndian, &valSize)
+	if err != nil {
+		return nil, err
+	}
+
+	index += numBytesRead
 	key := make([]byte, keySize)
-	copy(key[0:], recorfBuf[index:index+int(keySize)])
+	numBytesRead, err = binary.Decode(recorfBuf[index:], binary.BigEndian, key)
+	if err != nil {
+		return nil, err
+	}
 
-	index += int(keySize)
+	index += numBytesRead
 	val := make([]byte, valSize)
-	copy(val[0:], recorfBuf[index:index+int(valSize)])
+	numBytesRead, err = binary.Decode(recorfBuf[index:], binary.BigEndian, val)
+	if err != nil {
+		return nil, err
+	}
 
 	return &Record{
 		recordType: recordType,
+		timestamp:  timestamp,
 		Key:        key,
 		Val:        val,
-	}
+	}, nil
 }

@@ -3,8 +3,10 @@ package segmentstore
 import (
 	"encoding/binary"
 	"fmt"
+	"log"
 	"os"
 	"path/filepath"
+	"strconv"
 	"sync"
 	"time"
 
@@ -23,7 +25,69 @@ func GetSegmentStore() *SegmentStore {
 	return &SegmentStore{
 		recordMetadata: make([]byte, binary.MaxVarintLen64+binary.MaxVarintLen32),
 		index:          CreateIndex(),
+		oldSegments:    make(map[SegmentId]*Segment),
 	}
+}
+
+func (segmentStore *SegmentStore) InitializeSegmentStore(dirPath string) error {
+	segmentFiles, error := os.ReadDir(dirPath)
+
+	if error != nil {
+		return error
+	}
+
+	for _, segmentFile := range segmentFiles {
+		segmentId, err := strconv.ParseInt(segmentFile.Name(), 10, 64)
+		if err != nil {
+			log.Print("Error while convertion segment id from string to int")
+		}
+		file, err := os.Open(filepath.Join(dirPath, fmt.Sprintf("%d", segmentId)))
+		if err != nil {
+			return err
+		}
+
+		segment := &Segment{
+			id: segmentId,
+			fd: file,
+		}
+
+		var offset SegmentOffset = 0
+		for {
+			recordBuf, numBytesRead, error := segment.ReadEncodeRecordWithCrcCheck(offset)
+			if error != nil {
+				return error
+			}
+			if numBytesRead == 0 {
+				break
+			}
+
+			record, error := GetDecodedRecord(recordBuf)
+
+			if error != nil {
+				log.Print("Error while decoding record")
+				return error
+			}
+
+			if haveToUpdateIndex := segmentStore.index.CompareTimestamp(record.Key, record.timestamp); haveToUpdateIndex == true {
+				if record.recordType == RegularRecord {
+					valueOffset := offset + WalRecordHeaderSize + RecordHeaderSize + uint64(len(record.Key))
+					valueSize := uint32(len(record.Val))
+					segmentStore.index.Set(record.Key, &IndexRecord{
+						segmentId:    segment.id,
+						valueSize:    valueSize,
+						valueOffset:  valueOffset,
+						recordOffset: offset,
+						timestamp:    record.timestamp,
+					})
+				} else {
+					segmentStore.index.Delete(record.Key)
+				}
+			}
+			offset += numBytesRead
+		}
+		segmentStore.oldSegments[segment.id] = segment
+	}
+	return nil
 }
 
 func (segStore *SegmentStore) OpenNewSegmentFile(dirPath string) error {
@@ -73,6 +137,7 @@ func (segmentstore *SegmentStore) Write(record *Record, recordType RecordType) e
 		valueSize:    uint32(len(record.Val)),
 		valueOffset:  valOffset,
 		recordOffset: recordOffset,
+		timestamp:    record.timestamp,
 	})
 
 	if err != nil {
@@ -94,7 +159,7 @@ func (segmentstore *SegmentStore) Read(key []byte) ([]byte, error) {
 		segment = segmentstore.oldSegments[indexRec.segmentId]
 	}
 
-	value, error := segment.Read(indexRec.valueOffset, indexRec.valueSize)
+	value, error := segment.Read(indexRec.valueOffset, uint64(indexRec.valueSize))
 
 	if error != nil {
 		return nil, error
