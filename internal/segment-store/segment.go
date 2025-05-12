@@ -4,7 +4,6 @@ import (
 	"encoding/binary"
 	"hash/crc32"
 	"io"
-	"log"
 	"os"
 
 	bitcask_errors "github.com/nitin-goyal19/bitcask/errors"
@@ -68,7 +67,7 @@ func (segment *Segment) Write(recordHeaderBuf []byte, record *Record) (SegmentOf
 	}
 	totalBytesWritten += numBytesWritten
 
-	log.Printf("num bytes written: %d", totalBytesWritten)
+	// log.Printf("num bytes written: %d", totalBytesWritten)
 
 	recordOffset := segment.curWriteOffset
 	valOffset := uint64(segment.curWriteOffset + uint64(totalBytesWritten-numBytesWritten))
