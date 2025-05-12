@@ -5,6 +5,7 @@ import (
 	"testing"
 
 	"github.com/nitin-goyal19/bitcask/config"
+	bitcask_errors "github.com/nitin-goyal19/bitcask/errors"
 	testutils "github.com/nitin-goyal19/bitcask/internal/test-utils"
 	"github.com/stretchr/testify/assert"
 )
@@ -50,5 +51,14 @@ func TestSequetialGet(t *testing.T) {
 		storedVal, error := db.Get([]byte(key))
 		assert.Nil(t, error)
 		assert.ElementsMatch(t, val, storedVal)
+	}
+
+	for i := 0; i < 10; i++ {
+		key := testutils.GenerateBytes(uint16(rand.Intn(10 * config.KB)))
+		if _, ok := keyValMap[string(key)]; ok {
+			continue
+		}
+		_, error := db.Get(key)
+		assert.EqualError(t, error, bitcask_errors.ErrKeyNotFound.Error())
 	}
 }
