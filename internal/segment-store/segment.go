@@ -113,6 +113,10 @@ func (segment *Segment) ReadEncodeRecordWithCrcCheck(offset SegmentOffset) ([]by
 
 	recordBuf, error := segment.Read(offset+uint64(WalRecordHeaderSize), recordLen)
 
+	if error != nil {
+		return nil, 0, error
+	}
+
 	crcSum := crc32.ChecksumIEEE(walHeader[4:])
 	crcSum = crc32.Update(crcSum, crc32.IEEETable, recordBuf)
 
