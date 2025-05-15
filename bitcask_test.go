@@ -2,7 +2,6 @@ package bitcask
 
 import (
 	"math/rand"
-	"strconv"
 	"sync"
 	"testing"
 
@@ -86,12 +85,60 @@ func TestConcurrentWrites(t *testing.T) {
 		go func(index int) {
 			defer wg.Done()
 			for j := 0; j < numKeysPerGoRoutine; j++ {
-				key := []byte("key_" + strconv.Itoa(index) + "_" + strconv.Itoa(j))
-				val := []byte("value_" + strconv.Itoa(j))
+				key := testutils.GenerateBytes(uint16(rand.Intn(5 * config.KB)))
+				val := testutils.GenerateBytes(uint16(rand.Intn(10 * config.KB)))
 				keySetError := db.Set(key, val)
 				assert.Nil(t, keySetError)
 			}
 		}(i)
 	}
+	wg.Wait()
+}
+
+func TestConcurrentReads(t *testing.T) {
+	tempDir := t.TempDir()
+
+	db, error := Open("test-db", config.Config{
+		DataDirectory: tempDir,
+	})
+
+	assert.Nil(t, error)
+
+	defer db.Close()
+
+	numGoRoutines := 100
+	numKeysPerGoRoutine := 10
+
+	var wg sync.WaitGroup
+	var mSet sync.Map
+
+	for i := range numGoRoutines {
+		wg.Add(1)
+		go func(index int) {
+			defer wg.Done()
+			for j := 0; j < numKeysPerGoRoutine; j++ {
+				key := testutils.GenerateBytes(uint16(rand.Intn(5 * config.KB)))
+				val := testutils.GenerateBytes(uint16(rand.Intn(10 * config.KB)))
+				keySetError := db.Set(key, val)
+				assert.Nil(t, keySetError)
+				mSet.Store(string(key), string(val))
+			}
+		}(i)
+	}
+
+	wg.Wait()
+
+	mSet.Range(func(key, val any) bool {
+		wg.Add(1)
+		go func(key, val string) {
+			defer wg.Done()
+			storedVal, getError := db.Get([]byte(key))
+			assert.Nil(t, getError)
+			assert.ElementsMatch(t, []byte(val), storedVal)
+			assert.Greater(t, len(storedVal), 0)
+		}(key.(string), val.(string))
+		return true
+	})
+
 	wg.Wait()
 }
