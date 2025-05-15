@@ -81,15 +81,15 @@ func TestConcurrentWrites(t *testing.T) {
 
 	var wg sync.WaitGroup
 
-	for i := 0; i < numGoRoutines; i++ {
+	for i := range numGoRoutines {
 		wg.Add(1)
 		go func(index int) {
 			defer wg.Done()
 			for j := 0; j < numKeysPerGoRoutine; j++ {
 				key := []byte("key_" + strconv.Itoa(index) + "_" + strconv.Itoa(j))
 				val := []byte("value_" + strconv.Itoa(j))
-				error = db.Set(key, val)
-				assert.Nil(t, error)
+				keySetError := db.Set(key, val)
+				assert.Nil(t, keySetError)
 			}
 		}(i)
 	}
