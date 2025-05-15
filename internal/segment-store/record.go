@@ -22,8 +22,17 @@ type Record struct {
 	Val        []byte
 }
 
+func CreateNewRecord(key, val []byte, recordType RecordType) *Record {
+	record := &Record{
+		Key:        key,
+		Val:        val,
+		recordType: recordType,
+		timestamp:  uint64(time.Now().UnixNano()),
+	}
+	return record
+}
+
 func GetEncodedRecordHeader(record *Record) []byte {
-	record.timestamp = uint64(time.Now().UnixNano())
 	encodedRecordHeader := make([]byte, RecordHeaderSize)
 	encodedRecordHeader[0] = record.recordType
 	index := 1

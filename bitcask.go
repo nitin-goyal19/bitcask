@@ -103,11 +103,8 @@ func (db *Bitcask) Set(key []byte, val []byte) error {
 		return errors.New(fmt.Sprintf("Key can not be larger than %d bytes", math.MaxUint32))
 	}
 
-	record := segmentstore.Record{
-		Key: key,
-		Val: val,
-	}
-	if err := db.segmentStore.Write(&record, segmentstore.RegularRecord); err != nil {
+	record := segmentstore.CreateNewRecord(key, val, segmentstore.RegularRecord)
+	if err := db.segmentStore.Write(record, segmentstore.RegularRecord); err != nil {
 		return err
 	}
 	return nil

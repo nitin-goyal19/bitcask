@@ -113,6 +113,8 @@ func (segStore *SegmentStore) OpenNewSegmentFile(dirPath string) error {
 }
 
 func (segmentStore *SegmentStore) Close() error {
+	segmentStore.mu.Lock()
+	defer segmentStore.mu.Unlock()
 	for _, segment := range segmentStore.oldSegments {
 		if err := segment.Close(); err != nil {
 			return err
@@ -126,12 +128,19 @@ func (segmentStore *SegmentStore) Close() error {
 	return nil
 }
 
+func (segmentstore *SegmentStore) storeRecord(recordHeaderBuf []byte, record *Record) (SegmentOffset, SegmentOffset, error) {
+	valOffset, recordOffset, err := segmentstore.activeSegment.Write(recordHeaderBuf, record)
+	return valOffset, recordOffset, err
+}
+
 func (segmentstore *SegmentStore) Write(record *Record, recordType RecordType) error {
-	record.recordType = recordType
 	recordHeaderBuf := GetEncodedRecordHeader(record)
 	segmentstore.mu.Lock()
 	defer segmentstore.mu.Unlock()
-	valOffset, recordOffset, err := segmentstore.activeSegment.Write(recordHeaderBuf, record)
+	valOffset, recordOffset, err := segmentstore.storeRecord(recordHeaderBuf, record)
+	if err != nil {
+		return err
+	}
 	segmentstore.index.Set(record.Key, &IndexRecord{
 		segmentId:    segmentstore.activeSegment.id,
 		valueSize:    uint32(len(record.Val)),
@@ -139,14 +148,12 @@ func (segmentstore *SegmentStore) Write(record *Record, recordType RecordType) e
 		recordOffset: recordOffset,
 		timestamp:    record.timestamp,
 	})
-
-	if err != nil {
-		return err
-	}
 	return nil
 }
 
 func (segmentstore *SegmentStore) Read(key []byte) ([]byte, error) {
+	segmentstore.mu.RLock()
+	defer segmentstore.mu.RUnlock()
 	indexRec := segmentstore.index.Get(key)
 	if indexRec == nil {
 		return nil, bitcask_errors.ErrKeyNotFound
@@ -169,17 +176,19 @@ func (segmentstore *SegmentStore) Read(key []byte) ([]byte, error) {
 }
 
 func (segmentstore *SegmentStore) Delete(key []byte) (bool, error) {
+	segmentstore.mu.RLock()
 	indexRec := segmentstore.index.Get(key)
+	segmentstore.mu.RUnlock()
 	if indexRec == nil {
 		return false, bitcask_errors.ErrKeyNotFound
 	}
 
-	tombStoneRecord := &Record{
-		Key: key,
-		Val: nil,
-	}
+	tombStoneRecord := CreateNewRecord(key, nil, TombstoneRecord)
+	recordHeaderBuf := GetEncodedRecordHeader(tombStoneRecord)
 
-	if error := segmentstore.Write(tombStoneRecord, TombstoneRecord); error != nil {
+	segmentstore.mu.Lock()
+	defer segmentstore.mu.Unlock()
+	if _, _, error := segmentstore.storeRecord(recordHeaderBuf, tombStoneRecord); error != nil {
 		return false, error
 	}
 

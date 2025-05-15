@@ -1,5 +1,9 @@
 package segmentstore
 
+import (
+	"sync"
+)
+
 type IndexRecord struct {
 	segmentId    SegmentId
 	valueSize    uint32
@@ -10,7 +14,7 @@ type IndexRecord struct {
 
 type Index struct {
 	indexRecords map[string]*IndexRecord
-	// mu           sync.Mutex
+	mu           sync.RWMutex
 }
 
 func CreateIndex() *Index {
@@ -22,6 +26,8 @@ func CreateIndex() *Index {
 }
 
 func (index *Index) Get(key []byte) *IndexRecord {
+	index.mu.RLock()
+	defer index.mu.RUnlock()
 	indexRec, ok := index.indexRecords[string(key)]
 
 	if !ok {
@@ -32,12 +38,14 @@ func (index *Index) Get(key []byte) *IndexRecord {
 }
 
 func (index *Index) Set(key []byte, indexRec *IndexRecord) {
-	// index.mu.Lock()
-	// defer index.mu.Unlock()
+	index.mu.Lock()
+	defer index.mu.Unlock()
 	index.indexRecords[string(key)] = indexRec
 }
 
 func (index *Index) Delete(key []byte) {
+	index.mu.Lock()
+	defer index.mu.Unlock()
 	delete(index.indexRecords, string(key))
 }
 
