@@ -1,9 +1,10 @@
 package config
 
 import (
-	"errors"
 	"os"
 	"path/filepath"
+
+	bitcask_errors "github.com/nitin-goyal19/bitcask/errors"
 )
 
 const (
@@ -34,7 +35,7 @@ func (config *Config) Validate() error {
 	}
 
 	if config.SegmentSize <= 0 {
-		return errors.New("Segment size can not be negative")
+		return bitcask_errors.ErrInvalidSegmentSize
 	}
 
 	return nil

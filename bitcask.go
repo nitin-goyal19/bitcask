@@ -1,7 +1,6 @@
 package bitcask
 
 import (
-	"errors"
 	"fmt"
 	"math"
 	"os"
@@ -9,6 +8,7 @@ import (
 	"sync"
 
 	"github.com/nitin-goyal19/bitcask/config"
+	bitcask_errors "github.com/nitin-goyal19/bitcask/errors"
 	segmentstore "github.com/nitin-goyal19/bitcask/internal/segment-store"
 	"github.com/nitin-goyal19/bitcask/internal/utils"
 )
@@ -32,7 +32,7 @@ func Open(dbName string, config config.Config) (*Bitcask, error) {
 	}
 
 	if dbName == "" {
-		return nil, errors.New("DB name can not be an empty string")
+		return nil, bitcask_errors.ErrInvalidDbName
 	}
 
 	dbDir := filepath.Join(config.DataDirectory, dbName)
@@ -96,11 +96,11 @@ func (db *Bitcask) Close() {
 
 func (db *Bitcask) Set(key []byte, val []byte) error {
 	if len(key) > math.MaxUint16 {
-		return errors.New(fmt.Sprintf("Key can not be larger than %d bytes", math.MaxUint16))
+		return fmt.Errorf("key can not be larger than %d bytes", math.MaxUint16)
 	}
 
 	if len(val) > math.MaxUint32 {
-		return errors.New(fmt.Sprintf("Key can not be larger than %d bytes", math.MaxUint32))
+		return fmt.Errorf("key can not be larger than %d bytes", math.MaxUint32)
 	}
 
 	record := segmentstore.CreateNewRecord(key, val, segmentstore.RegularRecord)
