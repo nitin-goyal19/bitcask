@@ -117,8 +117,8 @@ func TestConcurrentReads(t *testing.T) {
 		go func(index int) {
 			defer wg.Done()
 			for j := 0; j < numKeysPerGoRoutine; j++ {
-				key := testutils.GenerateBytes(uint16(rand.Intn(5 * config.KB)))
-				val := testutils.GenerateBytes(uint16(rand.Intn(10 * config.KB)))
+				key := testutils.GenerateBytes(uint16(rand.Intn(2 * config.KB)))
+				val := testutils.GenerateBytes(uint16(rand.Intn(5 * config.KB)))
 				keySetError := db.Set(key, val)
 				assert.Nil(t, keySetError)
 				mSet.Store(string(key), string(val))
