@@ -2,10 +2,8 @@ package segmentstore
 
 import (
 	"encoding/binary"
-	"fmt"
 	"log"
 	"os"
-	"path/filepath"
 	"strconv"
 	"sync"
 	"time"
@@ -41,19 +39,15 @@ func (segmentStore *SegmentStore) InitializeSegmentStore(dirPath string) error {
 		if err != nil {
 			log.Print("Error while convertion segment id from string to int")
 		}
-		file, err := os.Open(filepath.Join(dirPath, fmt.Sprintf("%d", segmentId)))
+
+		segment, err := OpenSegment(dirPath, segmentId)
 		if err != nil {
 			return err
 		}
 
-		segment := &Segment{
-			id: segmentId,
-			fd: file,
-		}
-
 		var offset SegmentOffset = 0
 		for {
-			recordBuf, numBytesRead, error := segment.ReadEncodeRecordWithCrcCheck(offset)
+			recordBuf, recordOffset, numBytesRead, error := segment.ReadEncodeRecordWithCrcCheck(offset)
 			if error != nil {
 				return error
 			}
@@ -68,9 +62,9 @@ func (segmentStore *SegmentStore) InitializeSegmentStore(dirPath string) error {
 				return error
 			}
 
-			if haveToUpdateIndex := segmentStore.index.CompareTimestamp(record.Key, record.timestamp); haveToUpdateIndex == true {
+			if haveToUpdateIndex := segmentStore.index.CompareTimestamp(record.Key, record.timestamp); haveToUpdateIndex {
 				if record.recordType == RegularRecord {
-					valueOffset := offset + WalRecordHeaderSize + RecordHeaderSize + uint64(len(record.Key))
+					valueOffset := recordOffset + record.ValOffset()
 					valueSize := uint32(len(record.Val))
 					segmentStore.index.Set(record.Key, &IndexRecord{
 						segmentId:    segment.id,
@@ -91,24 +85,20 @@ func (segmentStore *SegmentStore) InitializeSegmentStore(dirPath string) error {
 }
 
 func (segStore *SegmentStore) OpenNewSegmentFile(dirPath string) error {
+	segStore.mu.Lock()
+	defer segStore.mu.Unlock()
 	segmentId := time.Now().UnixMilli()
-	segmentPath := filepath.Join(dirPath, fmt.Sprintf("%d", segmentId))
-	file, err := os.OpenFile(segmentPath, os.O_CREATE|os.O_RDWR|os.O_APPEND, 0644)
+	segment, err := CreateNewSegment(dirPath, segmentId)
 
 	if err != nil {
 		return err
 	}
 
-	segStore.mu.Lock()
-	defer segStore.mu.Unlock()
-
 	if segStore.activeSegment != nil {
+		segStore.activeSegment.isActive = false
 		segStore.oldSegments[segStore.activeSegment.id] = segStore.activeSegment
 	}
-	segStore.activeSegment = &Segment{
-		id: segmentId,
-		fd: file,
-	}
+	segStore.activeSegment = segment
 	return nil
 }
 

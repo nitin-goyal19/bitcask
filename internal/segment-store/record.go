@@ -90,3 +90,7 @@ func GetDecodedRecord(recorfBuf []byte) (*Record, error) {
 		Val:        val,
 	}, nil
 }
+
+func (record *Record) ValOffset() uint64 {
+	return RecordHeaderSize + uint64(len(record.Key))
+}

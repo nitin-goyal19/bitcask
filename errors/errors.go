@@ -7,4 +7,5 @@ var (
 	ErrCrcVerificationFailed = errors.New("CRC32 checsum verification failed")
 	ErrInvalidSegmentSize    = errors.New("SegmentSize in config must be a positive integer")
 	ErrInvalidDbName         = errors.New("DB name must be string with length greater than 0")
+	ErrSegmentClosedForWrite = errors.New("segment is closed for writing")
 )

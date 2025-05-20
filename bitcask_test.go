@@ -14,7 +14,7 @@ import (
 func TestSequetialSet(t *testing.T) {
 	tempDir := t.TempDir()
 
-	db, error := Open("test-db", config.Config{
+	db, error := Open("test-db", &config.Config{
 		DataDirectory: tempDir,
 	})
 
@@ -32,7 +32,7 @@ func TestSequetialSet(t *testing.T) {
 func TestSequetialGet(t *testing.T) {
 	tempDir := t.TempDir()
 
-	db, error := Open("test-db", config.Config{
+	db, error := Open("test-db", &config.Config{
 		DataDirectory: tempDir,
 	})
 
@@ -67,7 +67,7 @@ func TestSequetialGet(t *testing.T) {
 func TestConcurrentWrites(t *testing.T) {
 	tempDir := t.TempDir()
 
-	db, error := Open("test-db", config.Config{
+	db, error := Open("test-db", &config.Config{
 		DataDirectory: tempDir,
 	})
 
@@ -98,7 +98,7 @@ func TestConcurrentWrites(t *testing.T) {
 func TestConcurrentReads(t *testing.T) {
 	tempDir := t.TempDir()
 
-	db, error := Open("test-db", config.Config{
+	db, error := Open("test-db", &config.Config{
 		DataDirectory: tempDir,
 	})
 

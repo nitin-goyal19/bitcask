@@ -8,7 +8,7 @@ type IndexRecord struct {
 	segmentId    SegmentId
 	valueSize    uint32
 	valueOffset  SegmentOffset
-	recordOffset SegmentOffset
+	recordOffset SegmentOffset //Offset of log in segment file (includes segment headers, crc, record), TODO: rename
 	timestamp    uint64
 }
 

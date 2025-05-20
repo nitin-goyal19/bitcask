@@ -9,7 +9,7 @@ import (
 )
 
 func main() {
-	db, error := bitcask.Open("new-db", config.Config{})
+	db, error := bitcask.Open("new-db", &config.Config{})
 
 	if error != nil {
 		log.Fatal(error)

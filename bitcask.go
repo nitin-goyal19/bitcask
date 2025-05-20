@@ -19,13 +19,13 @@ const (
 )
 
 type Bitcask struct {
-	config       config.Config
+	config       *config.Config
 	dbName       string
 	segmentStore *segmentstore.SegmentStore
 	mu           sync.RWMutex
 }
 
-func Open(dbName string, config config.Config) (*Bitcask, error) {
+func Open(dbName string, config *config.Config) (*Bitcask, error) {
 	err := config.Validate()
 	if err != nil {
 		return nil, err
