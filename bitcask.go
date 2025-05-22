@@ -35,19 +35,18 @@ func Open(dbName string, config *config.Config) (*Bitcask, error) {
 		return nil, bitcask_errors.ErrInvalidDbName
 	}
 
-	dbDir := filepath.Join(config.DataDirectory, dbName)
-	err = initializeDbDir(dbDir)
+	err = initializeDbDir(config)
 
 	if err != nil {
 		return nil, err
 	}
 
-	segmentStore := segmentstore.GetSegmentStore()
+	segmentStore := segmentstore.GetSegmentStore(config)
 
-	if err = segmentStore.InitializeSegmentStore(filepath.Join(dbDir, segmentsDirName)); err != nil {
+	if err = segmentStore.InitializeSegmentStore(); err != nil {
 		return nil, err
 	}
-	if err = segmentStore.OpenNewSegmentFile(filepath.Join(dbDir, segmentsDirName)); err != nil {
+	if err = segmentStore.OpenNewSegmentFile(); err != nil {
 		return nil, err
 	}
 
@@ -58,7 +57,7 @@ func Open(dbName string, config *config.Config) (*Bitcask, error) {
 	}, nil
 }
 
-func initializeDbDir(path string) error {
+func initializeDbDir(config *config.Config) error {
 
 	createDirIfNotExists := func(path string) error {
 		dirExists, err := utils.DirExists(path)
@@ -73,15 +72,15 @@ func initializeDbDir(path string) error {
 		return nil
 	}
 
-	if err := createDirIfNotExists(path); err != nil {
+	if err := createDirIfNotExists(config.DataDirectory); err != nil {
 		return err
 	}
 
-	if err := createDirIfNotExists(filepath.Join(path, segmentsDirName)); err != nil {
+	if err := createDirIfNotExists(filepath.Join(config.DataDirectory, config.GetSegmentDirName())); err != nil {
 		return err
 	}
 
-	if err := createDirIfNotExists(filepath.Join(path, mergedSegmentsDirName)); err != nil {
+	if err := createDirIfNotExists(filepath.Join(config.DataDirectory, config.GetMergeSegmentDirName())); err != nil {
 		return err
 	}
 	return nil

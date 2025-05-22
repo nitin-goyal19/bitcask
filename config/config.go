@@ -15,8 +15,10 @@ const (
 )
 
 type Config struct {
-	DataDirectory string
-	SegmentSize   int64
+	DataDirectory         string
+	SegmentSize           int64
+	segmentsDirName       string
+	mergedSegmentsDirName string
 }
 
 func (config *Config) Validate() error {
@@ -38,5 +40,16 @@ func (config *Config) Validate() error {
 		return bitcask_errors.ErrInvalidSegmentSize
 	}
 
+	config.segmentsDirName = "segments"
+	config.mergedSegmentsDirName = "merged-segments"
+
 	return nil
+}
+
+func (config *Config) GetSegmentDirName() string {
+	return config.segmentsDirName
+}
+
+func (config *Config) GetMergeSegmentDirName() string {
+	return config.mergedSegmentsDirName
 }

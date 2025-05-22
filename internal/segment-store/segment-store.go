@@ -4,10 +4,13 @@ import (
 	"encoding/binary"
 	"log"
 	"os"
+	"path"
+	"path/filepath"
 	"strconv"
 	"sync"
 	"time"
 
+	"github.com/nitin-goyal19/bitcask/config"
 	bitcask_errors "github.com/nitin-goyal19/bitcask/errors"
 )
 
@@ -17,17 +20,20 @@ type SegmentStore struct {
 	mu             sync.RWMutex
 	recordMetadata []byte
 	index          *Index
+	config         *config.Config
 }
 
-func GetSegmentStore() *SegmentStore {
+func GetSegmentStore(config *config.Config) *SegmentStore {
 	return &SegmentStore{
 		recordMetadata: make([]byte, binary.MaxVarintLen64+binary.MaxVarintLen32),
 		index:          CreateIndex(),
 		oldSegments:    make(map[SegmentId]*Segment),
+		config:         config,
 	}
 }
 
-func (segmentStore *SegmentStore) InitializeSegmentStore(dirPath string) error {
+func (segmentStore *SegmentStore) InitializeSegmentStore() error {
+	dirPath := filepath.Join(segmentStore.config.DataDirectory, segmentStore.config.GetSegmentDirName())
 	segmentFiles, error := os.ReadDir(dirPath)
 
 	if error != nil {
@@ -84,11 +90,11 @@ func (segmentStore *SegmentStore) InitializeSegmentStore(dirPath string) error {
 	return nil
 }
 
-func (segStore *SegmentStore) OpenNewSegmentFile(dirPath string) error {
-	segStore.mu.Lock()
-	defer segStore.mu.Unlock()
+func (segStore *SegmentStore) OpenNewSegmentFile() error {
+	// segStore.mu.Lock()
+	// defer segStore.mu.Unlock()
 	segmentId := time.Now().UnixMilli()
-	segment, err := CreateNewSegment(dirPath, segmentId)
+	segment, err := CreateNewSegment(path.Join(segStore.config.DataDirectory, "segments"), segmentId)
 
 	if err != nil {
 		return err
@@ -118,16 +124,22 @@ func (segmentStore *SegmentStore) Close() error {
 	return nil
 }
 
-func (segmentstore *SegmentStore) storeRecord(recordHeaderBuf []byte, record *Record) (SegmentOffset, SegmentOffset, error) {
-	valOffset, recordOffset, err := segmentstore.activeSegment.Write(recordHeaderBuf, record)
+func (segmentstore *SegmentStore) storeRecord(walRecordHeaderBuf, recordHeaderBuf []byte, record *Record) (SegmentOffset, SegmentOffset, error) {
+	valOffset, recordOffset, err := segmentstore.activeSegment.Write(walRecordHeaderBuf, recordHeaderBuf, record)
 	return valOffset, recordOffset, err
 }
 
 func (segmentstore *SegmentStore) Write(record *Record, recordType RecordType) error {
 	recordHeaderBuf := GetEncodedRecordHeader(record)
+	walRecordHeaderBuf := GetWalRecordHeader(recordHeaderBuf, record)
+
 	segmentstore.mu.Lock()
 	defer segmentstore.mu.Unlock()
-	valOffset, recordOffset, err := segmentstore.storeRecord(recordHeaderBuf, record)
+
+	if record.WriteSize()+uint64(len(walRecordHeaderBuf)) > uint64(segmentstore.config.SegmentSize-segmentstore.activeSegment.curSize) {
+		segmentstore.OpenNewSegmentFile()
+	}
+	valOffset, recordOffset, err := segmentstore.storeRecord(walRecordHeaderBuf, recordHeaderBuf, record)
 	if err != nil {
 		return err
 	}
@@ -175,10 +187,15 @@ func (segmentstore *SegmentStore) Delete(key []byte) (bool, error) {
 
 	tombStoneRecord := CreateNewRecord(key, nil, TombstoneRecord)
 	recordHeaderBuf := GetEncodedRecordHeader(tombStoneRecord)
+	walRecordHeaderBuf := GetWalRecordHeader(recordHeaderBuf, tombStoneRecord)
 
 	segmentstore.mu.Lock()
 	defer segmentstore.mu.Unlock()
-	if _, _, error := segmentstore.storeRecord(recordHeaderBuf, tombStoneRecord); error != nil {
+
+	if tombStoneRecord.WriteSize()+uint64(len(walRecordHeaderBuf)) > uint64(segmentstore.config.SegmentSize-segmentstore.activeSegment.curSize) {
+		segmentstore.OpenNewSegmentFile()
+	}
+	if _, _, error := segmentstore.storeRecord(walRecordHeaderBuf, recordHeaderBuf, tombStoneRecord); error != nil {
 		return false, error
 	}
 

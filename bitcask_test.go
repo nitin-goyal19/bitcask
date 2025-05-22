@@ -135,6 +135,199 @@ func TestConcurrentReads(t *testing.T) {
 			storedVal, getError := db.Get([]byte(key))
 			assert.Nil(t, getError)
 			assert.ElementsMatch(t, []byte(val), storedVal)
+		}(key.(string), val.(string))
+		return true
+	})
+
+	wg.Wait()
+}
+
+func TestStoredDataOnReOpen(t *testing.T) {
+	tempDir := t.TempDir()
+
+	db, error := Open("test-db", &config.Config{
+		DataDirectory: tempDir,
+	})
+
+	assert.Nil(t, error)
+
+	numGoRoutines := 100
+	numKeysPerGoRoutine := 10
+
+	var wg sync.WaitGroup
+	var mSet sync.Map
+
+	for i := range numGoRoutines {
+		wg.Add(1)
+		go func(index int) {
+			defer wg.Done()
+			for j := 0; j < numKeysPerGoRoutine; j++ {
+				key := testutils.GenerateBytes(uint16(rand.Intn(2 * config.KB)))
+				val := testutils.GenerateBytes(uint16(rand.Intn(5 * config.KB)))
+				keySetError := db.Set(key, val)
+				assert.Nil(t, keySetError)
+				mSet.Store(string(key), string(val))
+			}
+		}(i)
+	}
+
+	wg.Wait()
+
+	db.Close()
+
+	db2, error := Open("test-db", &config.Config{
+		DataDirectory: tempDir,
+	})
+
+	assert.Nil(t, error)
+
+	defer db2.Close()
+
+	mSet.Range(func(key, val any) bool {
+		wg.Add(1)
+		go func(key, val string) {
+			defer wg.Done()
+			storedVal, getError := db2.Get([]byte(key))
+			assert.Nil(t, getError)
+			assert.ElementsMatch(t, []byte(val), storedVal)
+			assert.Greater(t, len(storedVal), 0)
+		}(key.(string), val.(string))
+		return true
+	})
+
+	wg.Wait()
+}
+
+func TestConcurrentWritesSmallSegment(t *testing.T) {
+	tempDir := t.TempDir()
+
+	db, error := Open("test-db", &config.Config{
+		DataDirectory: tempDir,
+		SegmentSize:   1 * config.MB,
+	})
+
+	assert.Nil(t, error)
+
+	defer db.Close()
+
+	numGoRoutines := 100
+	numKeysPerGoRoutine := 50
+
+	var wg sync.WaitGroup
+
+	for i := range numGoRoutines {
+		wg.Add(1)
+		go func(index int) {
+			defer wg.Done()
+			for j := 0; j < numKeysPerGoRoutine; j++ {
+				key := testutils.GenerateBytes(uint16(rand.Intn(5 * config.KB)))
+				val := testutils.GenerateBytes(uint16(rand.Intn(10 * config.KB)))
+				keySetError := db.Set(key, val)
+				assert.Nil(t, keySetError)
+			}
+		}(i)
+	}
+	wg.Wait()
+	assert.Nil(t, error)
+}
+
+func TestConcurrentReadsSmallSegment(t *testing.T) {
+	tempDir := t.TempDir()
+
+	db, error := Open("test-db", &config.Config{
+		DataDirectory: tempDir,
+		SegmentSize:   1 * config.MB,
+	})
+
+	assert.Nil(t, error)
+
+	defer db.Close()
+
+	numGoRoutines := 100
+	numKeysPerGoRoutine := 10
+
+	var wg sync.WaitGroup
+	var mSet sync.Map
+
+	for i := range numGoRoutines {
+		wg.Add(1)
+		go func(index int) {
+			defer wg.Done()
+			for j := 0; j < numKeysPerGoRoutine; j++ {
+				key := testutils.GenerateBytes(uint16(rand.Intn(2 * config.KB)))
+				val := testutils.GenerateBytes(uint16(rand.Intn(5 * config.KB)))
+				keySetError := db.Set(key, val)
+				assert.Nil(t, keySetError)
+				mSet.Store(string(key), string(val))
+			}
+		}(i)
+	}
+
+	wg.Wait()
+
+	mSet.Range(func(key, val any) bool {
+		wg.Add(1)
+		go func(key, val string) {
+			defer wg.Done()
+			storedVal, getError := db.Get([]byte(key))
+			assert.Nil(t, getError)
+			assert.ElementsMatch(t, []byte(val), storedVal)
+		}(key.(string), val.(string))
+		return true
+	})
+
+	wg.Wait()
+}
+
+func TestStoredDataOnReOpenSmallSegment(t *testing.T) {
+	tempDir := t.TempDir()
+
+	db, error := Open("test-db", &config.Config{
+		DataDirectory: tempDir,
+		SegmentSize:   1 * config.MB,
+	})
+
+	assert.Nil(t, error)
+
+	numGoRoutines := 100
+	numKeysPerGoRoutine := 10
+
+	var wg sync.WaitGroup
+	var mSet sync.Map
+
+	for i := range numGoRoutines {
+		wg.Add(1)
+		go func(index int) {
+			defer wg.Done()
+			for j := 0; j < numKeysPerGoRoutine; j++ {
+				key := testutils.GenerateBytes(uint16(rand.Intn(2 * config.KB)))
+				val := testutils.GenerateBytes(uint16(rand.Intn(5 * config.KB)))
+				keySetError := db.Set(key, val)
+				assert.Nil(t, keySetError)
+				mSet.Store(string(key), string(val))
+			}
+		}(i)
+	}
+
+	wg.Wait()
+
+	db.Close()
+
+	db2, error := Open("test-db", &config.Config{
+		DataDirectory: tempDir,
+	})
+
+	assert.Nil(t, error)
+
+	defer db2.Close()
+
+	mSet.Range(func(key, val any) bool {
+		wg.Add(1)
+		go func(key, val string) {
+			defer wg.Done()
+			storedVal, getError := db2.Get([]byte(key))
+			assert.Nil(t, getError)
+			assert.ElementsMatch(t, []byte(val), storedVal)
 			assert.Greater(t, len(storedVal), 0)
 		}(key.(string), val.(string))
 		return true

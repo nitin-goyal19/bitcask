@@ -71,14 +71,7 @@ func CreateNewSegment(dirPath string, segmentId SegmentId) (*Segment, error) {
 	}, nil
 }
 
-func (segment *Segment) Close() error {
-	return segment.fd.Close()
-}
-
-func (segment *Segment) Write(recordHeaderBuf []byte, record *Record) (SegmentOffset, uint64, error) {
-	if !segment.isActive {
-		return 0, 0, bitcask_errors.ErrSegmentClosedForWrite
-	}
+func GetWalRecordHeader(recordHeaderBuf []byte, record *Record) []byte {
 	walRecordHeader := make([]byte, WalRecordHeaderSize)
 	var recordSize uint64 = uint64(RecordHeaderSize + len(record.Key) + len(record.Val))
 	binary.Encode(walRecordHeader[4:], binary.BigEndian, recordSize)
@@ -90,8 +83,30 @@ func (segment *Segment) Write(recordHeaderBuf []byte, record *Record) (SegmentOf
 
 	binary.Encode(walRecordHeader, binary.BigEndian, crcSum)
 
+	return walRecordHeader
+}
+
+func (segment *Segment) Close() error {
+	return segment.fd.Close()
+}
+
+func (segment *Segment) Write(walRecordHeaderBuf, recordHeaderBuf []byte, record *Record) (SegmentOffset, uint64, error) {
+	if !segment.isActive {
+		return 0, 0, bitcask_errors.ErrSegmentClosedForWrite
+	}
+	// walRecordHeader := make([]byte, WalRecordHeaderSize)
+	// var recordSize uint64 = uint64(RecordHeaderSize + len(record.Key) + len(record.Val))
+	// binary.Encode(walRecordHeader[4:], binary.BigEndian, recordSize)
+
+	// crcSum := crc32.ChecksumIEEE(walRecordHeader[4:])
+	// crcSum = crc32.Update(crcSum, crc32.IEEETable, recordHeaderBuf)
+	// crcSum = crc32.Update(crcSum, crc32.IEEETable, record.Key)
+	// crcSum = crc32.Update(crcSum, crc32.IEEETable, record.Val)
+
+	// binary.Encode(walRecordHeader, binary.BigEndian, crcSum)
+
 	totalBytesWritten := 0
-	numBytesWritten, err := segment.fd.Write(walRecordHeader)
+	numBytesWritten, err := segment.fd.Write(walRecordHeaderBuf)
 
 	if err != nil {
 		return 0, 0, err
@@ -124,6 +139,7 @@ func (segment *Segment) Write(recordHeaderBuf []byte, record *Record) (SegmentOf
 	recordOffset := segment.curOffset
 	valOffset := uint64(segment.curOffset + uint64(totalBytesWritten-numBytesWritten))
 	segment.curOffset += uint64(totalBytesWritten)
+	segment.curSize += int64(totalBytesWritten)
 
 	// walRecordSize := uint64(WalRecordHeaderSize) + recordSize
 
