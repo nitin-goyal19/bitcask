@@ -13,11 +13,6 @@ import (
 	"github.com/nitin-goyal19/bitcask/internal/utils"
 )
 
-const (
-	segmentsDirName       = "segments"
-	mergedSegmentsDirName = "merged-segments"
-)
-
 type Bitcask struct {
 	config       *config.Config
 	dbName       string
