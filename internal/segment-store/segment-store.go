@@ -154,8 +154,8 @@ func (segmentstore *SegmentStore) Write(record *Record, recordType RecordType) e
 }
 
 func (segmentstore *SegmentStore) Read(key []byte) ([]byte, error) {
-	segmentstore.mu.RLock()
-	defer segmentstore.mu.RUnlock()
+	// segmentstore.mu.RLock()
+	// defer segmentstore.mu.RUnlock()
 	indexRec := segmentstore.index.Get(key)
 	if indexRec == nil {
 		return nil, bitcask_errors.ErrKeyNotFound

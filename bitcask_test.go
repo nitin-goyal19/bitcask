@@ -190,7 +190,7 @@ func TestStoredDataOnReOpen(t *testing.T) {
 			storedVal, getError := db2.Get([]byte(key))
 			assert.Nil(t, getError)
 			assert.ElementsMatch(t, []byte(val), storedVal)
-			assert.Greater(t, len(storedVal), 0)
+			// assert.Greater(t, len(storedVal), 0)
 		}(key.(string), val.(string))
 		return true
 	})

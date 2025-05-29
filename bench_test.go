@@ -3,9 +3,7 @@ package bitcask
 import (
 	"math/rand"
 	"sync"
-	"sync/atomic"
 	"testing"
-	"time"
 
 	"github.com/nitin-goyal19/bitcask/config"
 	testutils "github.com/nitin-goyal19/bitcask/internal/test-utils"
@@ -28,13 +26,11 @@ func BenchmarkConcurrentWrites(b *testing.B) {
 
 	defer db.Close()
 
-	var i int64
-
 	b.ResetTimer()
 	b.ReportAllocs()
 	b.RunParallel(func(pb *testing.PB) {
 		for pb.Next() {
-			idx := atomic.AddInt64(&i, 1) % int64(len(corpus))
+			idx := rand.Intn(len(corpus))
 			err := db.Set(corpus[idx].Key, corpus[idx].Value)
 			if err != nil {
 				b.Fatal(err)
@@ -68,9 +64,8 @@ func BenchmarkBitcaskConcurrentGet(b *testing.B) {
 	b.ResetTimer()
 	b.ReportAllocs()
 	b.RunParallel(func(pb *testing.PB) {
-		r := rand.New(rand.NewSource(time.Now().UnixNano()))
 		for pb.Next() {
-			idx := r.Intn(len(corpus))
+			idx := rand.Intn(len(corpus))
 			_, err := db.Get(corpus[idx].Key)
 			if err != nil {
 				b.Fatal(err)
@@ -104,9 +99,8 @@ func BenchmarkBitcaskConcurrentMixed(b *testing.B) {
 	b.ResetTimer()
 	b.ReportAllocs()
 	b.RunParallel(func(pb *testing.PB) {
-		r := rand.New(rand.NewSource(time.Now().UnixNano()))
 		for pb.Next() {
-			idx := r.Intn(len(corpus))
+			idx := rand.Intn(len(corpus))
 			if idx%3 == 0 { // ~33% writes, 67% reads
 				_ = db.Set(corpus[idx].Key, corpus[idx].Value)
 			} else {
