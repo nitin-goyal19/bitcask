@@ -58,3 +58,20 @@ func (index *Index) CompareTimestamp(key []byte, timestamp uint64) bool {
 
 	return timestamp >= indexRec.timestamp
 }
+
+type IndexCopy struct {
+	key         string
+	indexRecord *IndexRecord
+}
+
+func (index *Index) IndexCopyForCompaction() []IndexCopy {
+	index.mu.RLock()
+	defer index.mu.RUnlock()
+
+	indexCopy := make([]IndexCopy, len(index.indexRecords))
+
+	for key, indexRec := range index.indexRecords {
+		indexCopy = append(indexCopy, IndexCopy{key: key, indexRecord: indexRec})
+	}
+	return indexCopy
+}

@@ -194,3 +194,43 @@ func (segment *Segment) ReadEncodeRecordWithCrcCheck(offset SegmentOffset) ([]by
 
 	return recordBuf, recordOffset, WalRecordHeaderSize + recordLen, nil
 }
+
+func (segment *Segment) readRecordForCompaction(offset SegmentOffset) ([]byte, error) {
+	walHeader, error := segment.Read(offset, WalRecordHeaderSize)
+
+	if error != nil && (error != io.EOF || len(walHeader) != 0) {
+		return nil, error
+	}
+
+	if error == io.EOF {
+		return nil, nil
+	}
+
+	var recordLen uint64
+	if _, error = binary.Decode(walHeader[4:], binary.BigEndian, &recordLen); error != nil {
+		return nil, error
+	}
+
+	recordOffset := offset + uint64(WalRecordHeaderSize)
+	recordBuf, error := segment.Read(recordOffset, recordLen)
+
+	if error != nil {
+		return nil, error
+	}
+
+	return append(walHeader, recordBuf...), nil
+}
+
+func (segment *Segment) writeCompactionRecord(record []byte) (SegmentOffset, error) {
+	numBytesWritten, error := segment.fd.Write(record)
+
+	if error != nil {
+		return 0, error
+	}
+
+	curOffset := segment.curOffset
+	segment.curOffset += SegmentOffset(numBytesWritten)
+	segment.curSize += int64(numBytesWritten)
+
+	return curOffset, nil
+}

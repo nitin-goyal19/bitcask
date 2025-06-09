@@ -1,7 +1,6 @@
 package segmentstore
 
 import (
-	"encoding/binary"
 	"log"
 	"os"
 	"path"
@@ -14,21 +13,27 @@ import (
 	bitcask_errors "github.com/nitin-goyal19/bitcask/errors"
 )
 
+type SegmentStoreType = byte
+
+const (
+	PrimaryStore SegmentStoreType = iota
+	CompactionStore
+)
+
 type SegmentStore struct {
-	activeSegment  *Segment
-	oldSegments    map[SegmentId]*Segment
-	mu             sync.RWMutex
-	recordMetadata []byte
-	index          *Index
-	config         *config.Config
+	activeSegment *Segment
+	oldSegments   map[SegmentId]*Segment
+	mu            sync.RWMutex
+	index         *Index
+	config        *config.Config
+	storeType     SegmentStoreType
 }
 
-func GetSegmentStore(config *config.Config) *SegmentStore {
+func GetSegmentStore(config *config.Config, storeType SegmentStoreType) *SegmentStore {
 	return &SegmentStore{
-		recordMetadata: make([]byte, binary.MaxVarintLen64+binary.MaxVarintLen32),
-		index:          CreateIndex(),
-		oldSegments:    make(map[SegmentId]*Segment),
-		config:         config,
+		index:       CreateIndex(),
+		oldSegments: make(map[SegmentId]*Segment),
+		config:      config,
 	}
 }
 
@@ -94,7 +99,12 @@ func (segStore *SegmentStore) OpenNewSegmentFile() error {
 	// segStore.mu.Lock()
 	// defer segStore.mu.Unlock()
 	segmentId := time.Now().UnixMilli()
-	segment, err := CreateNewSegment(path.Join(segStore.config.DataDirectory, "segments"), segmentId)
+	segmentDirName := segStore.config.GetSegmentDirName()
+
+	if segStore.storeType == CompactionStore {
+		segmentDirName = segStore.config.GetMergeSegmentDirName()
+	}
+	segment, err := CreateNewSegment(path.Join(segStore.config.DataDirectory, segmentDirName), segmentId)
 
 	if err != nil {
 		return err
@@ -202,4 +212,15 @@ func (segmentstore *SegmentStore) Delete(key []byte) (bool, error) {
 	segmentstore.index.Delete(key)
 
 	return true, nil
+}
+
+func (segmentstore *SegmentStore) PrepareForCompaction() SegmentId {
+	segmentstore.mu.Lock()
+	defer segmentstore.mu.Unlock()
+
+	activeSegmentId := segmentstore.activeSegment.id
+
+	segmentstore.OpenNewSegmentFile()
+
+	return activeSegmentId
 }
