@@ -36,7 +36,7 @@ func Open(dbName string, config *config.Config) (*Bitcask, error) {
 		return nil, err
 	}
 
-	segmentStore := segmentstore.GetSegmentStore(config)
+	segmentStore := segmentstore.GetSegmentStore(config, segmentstore.PrimaryStore)
 
 	if err = segmentStore.InitializeSegmentStore(); err != nil {
 		return nil, err
@@ -118,4 +118,17 @@ func (db *Bitcask) Delete(key []byte) (bool, error) {
 	ok, error := db.segmentStore.Delete(key)
 
 	return ok, error
+}
+
+func (db *Bitcask) RunCompaction() {
+	lastActiveSegmentId := db.segmentStore.PrepareForCompaction()
+
+	compactionSegmentStore := segmentstore.GetSegmentStore(db.config, segmentstore.CompactionStore)
+
+	compactionSegmentStore.RunCompaction(db.segmentStore, lastActiveSegmentId)
+
+	segmentstore.MergeCompactionAndPrimaryStore(compactionSegmentStore, db.segmentStore)
+
+	db.segmentStore.CloseOldSegment(lastActiveSegmentId)
+
 }
