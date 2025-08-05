@@ -34,6 +34,7 @@ func GetSegmentStore(config *config.Config, storeType SegmentStoreType) *Segment
 		index:       CreateIndex(),
 		oldSegments: make(map[SegmentId]*Segment),
 		config:      config,
+		storeType:   storeType,
 	}
 }
 
